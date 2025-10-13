@@ -83,8 +83,8 @@ $$
 L^{\text{CLIP}}(\theta)
 = \mathbb{E}_t \left[
   \min\left(
-    r_t(\theta)\,\hat{A}_t,\ 
-    \operatorname{clip}\!\left(r_t(\theta), 1-\epsilon, 1+\epsilon\right)\hat{A}_t
+    r_t(\theta)\,\hat{A}_t,\,
+    \mathrm{clip}\left(r_t(\theta), 1-\epsilon, 1+\epsilon\right)\hat{A}_t
   \right)
 \right]
 $$
