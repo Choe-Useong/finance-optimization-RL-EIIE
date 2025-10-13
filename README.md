@@ -1,120 +1,142 @@
-# EIIE 기반 산업 포트폴리오 강화학습
+# EIIE 기반 산업 포트폴리오 강화학습 연구 노트
 
-고정관념 그대로 돌리기보다는, 논문을 곁에 두고 한 단계씩 따라 할 수 있도록 정리한 프로젝트 안내입니다. 이 저장소는 한국 산업 섹터 데이터를 활용해 EIIE(Ensemble of Identical Independent Evaluators) 구조의 강화학습 포트폴리오 에이전트를 학습시키고, 균등 분산 투자(Uniform Buy And Hold, UBAH) 전략과 비교하는 과정을 담고 있습니다.
+이 저장소는 Zhang et al. (2017) *Deep Reinforcement Learning for Portfolio Management*에서 제안한 EIIE(Ensemble of Identical Independent Evaluators) 아키텍처를 국내 산업 섹터 데이터에 맞게 재현한 실험 코드와 데이터 전처리 파이프라인을 제공합니다. 실험의 핵심은 (1) 산업별 재무·거시 지표를 포함하는 상태 공간을 설계하고, (2) FinRL 포트폴리오 환경에서 EIIE 정책 네트워크를 학습시킨 뒤, (3) 균등 분산 투자 전략(Uniform Buy-And-Hold, 이하 UBAH)과 정량 지표로 비교하는 것입니다.
 
-## 프로젝트 한눈에 보기
-- 산업별 재무제표 + 거시지표 엑셀을 `전처리.py`로 묶어 학습용 시계열을 만듭니다.
-- FinRL에 포함된 `PortfolioOptimizationEnv`와 `EIIE` 아키텍처로 강화학습 환경을 구성합니다.
-- Optuna로 하이퍼파라미터를 탐색하고, QuantStats로 Sharpe, Sortino, MDD, CAGR, Omega 등을 계산합니다.
-- 결과는 학습/검증 구간별 자산 곡선, 포트폴리오 비중 엑셀, 지표 요약으로 남습니다.
+## 1. 참고 문헌 및 구현 의존성
+- **핵심 레퍼런스**  
+  Zhang, Z., Zohren, S., & Roberts, S. J. (2017). *Deep Reinforcement Learning for Portfolio Management*.  
+  논문에서 제시한 Conv1d+Softmax 구조를 그대로 유지하되, 한국 산업 섹터 데이터에 맞춰 입력 피처를 확장했습니다.
+- **구현 프레임워크**  
+  [FinRL](https://github.com/AI4Finance-Foundation/FinRL)의 `PortfolioOptimizationEnv`, `DRLAgent`, `EIIE` 클래스를 사용합니다. FinRL 버전에 따라 `time_window`, `features`, `cash_bias` 등의 인자 명이 달라질 수 있으므로 `requirements.txt` 버전 고정이 필수입니다.
+- **지표 계산**  
+  [QuantStats](https://github.com/ranaroussi/quantstats)를 활용하여 Sharpe, Sortino, MDD, CAGR, Omega 등 위험조정성과 지표를 계산합니다.
 
-## 참고 & 이론 배경
-| 구분 | 자료 | 메모 |
-| --- | --- | --- |
-| 원천 모델 | Zhang et al., 2017, “Deep Reinforcement Learning for Portfolio Management” | EIIE가 제안된 논문. 동일한 Conv1d 블록을 종목별로 적용해 weight vector를 만들고, Softmax로 비중을 정규화합니다. |
-| 구현 참고 | AI4Finance FinRL, Portfolio Optimization 모듈 | 본 저장소 스크립트가 직접 활용하는 라이브러리. 최신 버전에서는 API 시그니처가 조금씩 바뀌니 requirements 버전에 주의하세요. |
-| 금융 지표 | QuantStats documentation | Sharpe, Sortino, Omega 계산 시 입력값(위험중립 금리, 기간)에 따라 수치가 크게 바뀌므로 필수 확인. |
+## 2. 데이터 전처리 파이프라인 (`전처리.py`)
+### 2.1 입력 가정
+- 하나의 엑셀 파일에 산업별 재무제표, 업종별 시가총액, 거시지표, ETF 가격 정보가 시트별로 나뉘어 있다고 가정합니다. 기본 시트명은 `산업`, `업종별시가총액`, `경제지표`, `ETF정보`입니다.
+- 각 시트에는 `Symbol Name`(산업 코드/이름)와 날짜 열이 존재하며, 일부는 월별/분기별 보고서 형태입니다.
 
-## 파일 구성과 역할
-- `전처리.py`  
-  - 기대 입력: 한국 산업 섹터별 재무제표/거시지표 엑셀 (`산업`, `업종별시가총액`, `경제지표`, `ETF정보` 등의 시트명).  
-  - 주요 처리: 문자열 정리(띄어쓰기 제거, 한글-영문 매핑), 멀티인덱스 → 피벗 변환, 월간 샘플링, NaN 보간, 로그 스케일링.  
-  - 산출물: `통합데이터.xlsx`, `산업별통합데이터.xlsx` (학습 스크립트 입력).
-- `EIIE 강화학습.py`  
-  - 학습/평가 전체 파이프라인.  
-  - 핵심 하이퍼파라미터: `timewin=15`, `fee=0.0012`, `reward_scaling=0.99995`, `mid_features=30`, `final_features=20`.  
-  - Optuna 탐색 후, 균등분산(UBAH)과 EIIE를 비교하고, 결과 엑셀/지표를 저장.
-- `산업포트폴리오 트레이딩 모델.pdf`  
-  - 프로젝트 요약 슬라이드.
-- `requirements.txt`, `.gitignore`, `README.md`  
-  - 재현 환경과 저장소 설명.
+### 2.2 주요 처리 단계
+1. **문자 정규화**: 한글 산업 명칭의 접두사 제거, 영문/한글 매핑, 공백 정리.
+2. **Melt & Pivot**: 시트를 모두 `(Symbol Name, time, 항목)` 형태로 변환한 뒤 피벗 테이블로 재구성하여 MultiIndex 시계열을 만듭니다.
+3. **날짜 정렬 및 보간**: 보고서 기준일을 실거래일에 맞춰 이동시키고, 산업별로 forward-fill을 수행합니다.
+4. **로그 변환 및 부호 분리**: 양수 지표는 `np.log`로 스케일링하고, 음수 가능 지표는 `(+/-)` 컬럼을 분리하여 절댓값 로그로 표현합니다.
+5. **월간 샘플링**: 학습 안정성을 위해 월초 데이터(`resample('MS')`)만 남깁니다.
+6. **산출물**:  
+   - `통합데이터.xlsx`: 모든 산업×날짜×피처가 포함된 학습용 원천 데이터  
+   - `산업별통합데이터.xlsx`: 월별 샘플링 이후의 입력 데이터
 
-## 환경 준비 가이드 (PowerShell 기준)
+## 3. 강화학습 환경 정식화 (`EIIE 강화학습.py`)
+### 3.1 상태 공간 (State)
+각 시점 \( t \)에서의 상태 \( s_t \)는 `timewin` 길이의 롤링 윈도우를 적용한 다음 피처 행렬로 구성됩니다.
+- **포함 피처**: 종가(`주가`), 시가총액, 총자산, 총부채, 현금흐름, 산업별 경제지표, 주요 원자재/금리 지표 등 약 40개 변수.
+- **정규화**: 현재 설정은 무정규화(raw 값)이며, 종가만 첫 값으로 나눠 정규화합니다. 필요 시 `GroupByScaler`(MaxAbs)로 대체 가능합니다.
+
+### 3.2 행동 공간 (Action)
+행동 \( a_t \)는 각 산업 섹터에 대한 비중 벡터입니다. Softmax 출력을 사용해 \(\sum_i a_{t,i} = 1\)을 보장합니다. FinRL 환경 옵션에 따라 현금 자산을 추가할 수도 있습니다 (`cash_bias=True`).
+
+### 3.3 보상 함수 (Reward)
+기본 보상은 포트폴리오 가치의 로그 수익률입니다.
+\[
+r_t = \log\left(\frac{V_{t+1}}{V_t}\right)
+\]
+환경 내부에서 거래 수수료(`fee=0.0012`)가 반영되며, `reward_scaling=0.99995`로 점진적인 감소를 적용해 장기 학습에서의 보상 폭발을 완화합니다.
+
+### 3.4 에피소드 구성
+- 학습 구간: `time < 2021-04-01`
+- 테스트 구간: `time ≥ 2021-04-01`
+- `timewin=15`일을 버퍼로 사용하므로 실사용 기간은 그 이후부터 시작됩니다.
+
+## 4. EIIE 정책 네트워크 구조
+FinRL의 `EIIE` 구현은 다음 블록으로 구성됩니다.
+1. **Shared 1D CNN**  
+   - 입력 텐서 형태: `(batch, feature_dim, timewin, num_assets)`  
+   - 동일한 Conv1d 커널이 자산별로 적용되며, 시간 축을 따라 패턴을 추출합니다.
+2. **Feature Fusion & Attention**  
+   - Conv1d 출력은 자산별 임베딩으로 변환됩니다.  
+   - 중간 채널 수(`mid_features=30`)와 최종 채널 수(`final_features=20`)는 Optuna 탐색 대상입니다.
+3. **Softmax Head**  
+   - 출력은 각 자산별 로그 잇점(logits)으로 구성되며, Softmax 후 포트폴리오 비중이 됩니다.
+4. **Residual Connection (옵션)**  
+   - Cash 비중을 사용하는 경우, 잔여 비중이 현금으로 할당됩니다.
+
+학습 대상 파라미터는 Conv1d 가중치, attention 결합 계수, Softmax 직전 선형층입니다. 논문과 동일하게 ReLU 활성화와 LayerNorm이 사용됩니다.
+
+## 5. 학습 알고리즘
+### 5.1 알고리즘 개요
+FinRL의 `DRLAgent`는 Stable-Baselines3를 래핑합니다. 본 스크립트에서는 PPO를 기본으로 사용하지만, A2C/TD3로 교체 가능합니다. PPO의 손실 함수는 다음과 같습니다.
+\[
+L^{\text{CLIP}}(\theta) = \mathbb{E}_t\left[\min\left(
+    r_t(\theta)\hat{A}_t,
+    \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\hat{A}_t
+\right)\right]
+\]
+여기서 \( r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)} \)이며, \(\hat{A}_t\)는 Generalized Advantage Estimation(GAE)로 계산합니다.
+
+### 5.2 Optuna 기반 하이퍼파라미터 탐색
+- 탐색 대상: 학습률, 배치 크기, 클리핑 값, `mid_features`, `final_features`
+- 목적 함수: 테스트 구간 MDD를 제약한 Sharpe Ratio 최대화
+- 탐색 절차:
+  1. 샘플 파라미터 집합을 생성
+  2. PPO 에이전트를 학습
+  3. 테스트 구간 성과를 계산하여 Optuna trial에 기록
+  4. 최고 성과 모델을 `joblib`으로 저장 (필요 시 코드 추가)
+
+### 5.3 학습 의사코드
+```python
+for trial in study:
+    params = sample_hyperparams(trial)
+    agent = DRLAgent(env=env_train, model_name="PPO", **params)
+    trained_model = agent.train_model(total_timesteps=TIMESTEPS)
+    stats = evaluate(trained_model, env_test)
+    trial.report(stats["sharpe"], step=0)
+```
+
+## 6. 재현 절차
+### 6.1 환경 셋업
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
+> PowerShell에서 한글이 깨질 경우 `chcp 65001` 실행 후 작업하세요. 모든 파일은 UTF-8로 저장되어 있습니다.
 
-> 모든 스크립트와 README는 UTF-8 인코딩입니다. PowerShell이 한글을 깨뜨릴 때는 `chcp 65001`을 먼저 실행하거나, VS Code에서 파일 인코딩을 UTF-8로 강제 지정하세요. Git에서 CRLF 경고가 보이면 `git config core.autocrlf true` 설정도 고려하세요.
+### 6.2 데이터 준비
+1. 원본 엑셀을 프로젝트 루트에 복사
+2. `python 전처리.py` 실행
+3. 생성된 `통합데이터.xlsx`를 열어 NaN/이상치 여부 확인
 
-### FinRL 최신 버전 사용 시
-```powershell
-git clone https://github.com/AI4Finance-Foundation/FinRL.git
-pip install -e .\FinRL
-```
-만약 `PortfolioOptimizationEnv`의 인자가 바뀌었다면, 스크립트 내 `time_window`, `features`, `valuation_feature` 등의 인자를 맞춰 수정해야 합니다.
+### 6.3 학습 실행
+1. `EIIE 강화학습.py` 상단의 Colab 전용 `!pip install` 셀은 주석 처리
+2. `python "EIIE 강화학습.py"` 실행
+3. GPU 사용 시 CUDA 환경이 올바르게 구성되어 있는지 확인 (`torch.cuda.is_available()`)
 
-## 데이터 준비 절차
-1. **원본 엑셀 정리**  
-   - 필수 컬럼: `Symbol Name`, `time`, 종가(`시가총액`, `주가` 등), 재무 지표, 거시 변수.  
-   - 날짜 열은 `datetime64[ns]`로 변환되도록 날짜 형식을 통일합니다. 엑셀의 병합된 셀은 미리 해체하는 편이 안전합니다.
-2. **전처리 스크립트 실행**  
-   ```powershell
-   python 전처리.py
-   ```
-   - 생성된 `통합데이터.xlsx`에서 NaN이 예상 범위를 넘으면, 전처리 구간(예: ffill, 로그 변환)을 조정하세요.
-3. **학습/검증 구간 확인**  
-   - `EIIE 강화학습.py`는 기본적으로 `sptdate = "2021-04-01"`을 기준으로 훈련/테스트를 나눕니다. 필요하면 해당 값을 수정하세요.
+### 6.4 산출물
+- `train_portfolio_data.xlsx`, `test_portfolio_data.xlsx`: 기간별 가치곡선
+- `weights_*.xlsx`: 에이전트가 선택한 자산별 비중
+- 콘솔 로그: Sharpe, Sortino, MDD, CAGR, Omega, 누적 수익률
 
-## 학습 순서 (Step-by-step)
-1. 가상환경 활성화 후 FinRL, QuantStats 등이 정상 설치됐는지 `python -c "import finrl, quantstats"`로 확인.
-2. `EIIE 강화학습.py` 최상단의 Colab 전용 `!pip install` 구문은 주석 처리하거나 삭제합니다.
-3. `python "EIIE 강화학습.py"` 실행.  
-   - `torch.set_num_threads(12)`가 설정되어 있으므로 CPU 코어가 부족한 환경에서는 값을 줄여도 됩니다.  
-   - GPU 사용 시 `device = 'cuda:0' if torch.cuda.is_available() else 'cpu'`가 자동 감지합니다.
-4. 실행이 완료되면 아래 산출물을 확인합니다.
-   - `train_portfolio_data.xlsx`, `test_portfolio_data.xlsx`: 기간별 자산 곡선.
-   - `weights` 관련 엑셀/CSV: 종목별 자산 비중.
-   - 콘솔 출력: Sharpe/Sortino/MDD/CAGR/Omega 지표 비교.
-5. Optuna 탐색 결과를 재사용하려면 `study` 객체를 `joblib.dump`로 저장하는 부분을 추가하세요.
-
-## 핵심 하이퍼파라미터 설명
-| 변수 | 기본값 | 설명 |
+## 7. 평가 지표 정리
+| 지표 | 정의 | 구현 |
 | --- | --- | --- |
-| `timewin` | 15 | Conv1d 윈도우 크기. 15거래일 히스토리를 한 번에 입력합니다. |
-| `fee` | 0.0012 | 거래 수수료 비율. 왕복 수수료를 모델에 반영합니다. |
-| `reward_scaling` | 0.99995 | 보상 스케일링 팩터. 장기간 학습 시 보상 폭발을 완화합니다. |
-| `mid_features` | 30 | EIIE 내부 중간 채널 수. Conv1d에서 추출하는 특징 수를 결정합니다. |
-| `final_features` | 20 | Softmax 이전 출력 채널 수. |
-| `rf` | 0.02 | QuantStats 위험중립 금리. Sharpe/Sortino 계산에 사용합니다. |
-| `periods` | 252 | 연환산을 위한 기간 수. 한국 주식 시장 기준으로 252거래일을 사용합니다. |
+| Sharpe | \((R_p - R_f)/\sigma_p\) | `quantstats.stats.sharpe(return_series, rf=0.02, periods=252)` |
+| Sortino | \((R_p - R_f)/\sigma_{down}\) | `quantstats.stats.sortino(..., rf=0.02)` |
+| MDD | \(\max_{t} \frac{\max_{s \le t} V_s - V_t}{\max_{s \le t} V_s}\) | `quantstats.stats.max_drawdown(nav_series)` |
+| CAGR | \((V_T / V_0)^{252/n} - 1\) | `quantstats.stats.cagr(nav_series, periods=252)` |
+| Omega | \(\frac{\int_{\tau}^{\infty} (1-F(x))dx}{\int_{-\infty}^{\tau} F(x)dx}\) | `quantstats.stats.omega(return_series, required_return=0.02)` |
 
-## 모델 구조 요약
-- **상태 표현**: `features` 리스트에 포함된 재무/거시 변수 + 종가를 정규화 없이 그대로 입력. 종목별로 `timewin` 길이의 컨볼루션을 적용합니다.
-- **EIIE 아키텍처**  
-  1. 입력 텐서: `(batch, timewin, 종목 수, feature 수)`  
-  2. 동일한 1D CNN 블록을 종목별로 공유해 시간 패턴을 학습.  
-  3. Attention-like 조합층을 거친 뒤 Softmax로 포트폴리오 비중 산출.  
-  4. Cash 비중 노드를 추가해 무위험 자산 보유를 허용할 수 있습니다(필요 시 `cash_bias` 옵션 참고).
-- **행동 출력**: 자산 비중 벡터. 환경에서 거래 수수료와 슬리피지를 고려해 다음 스텝의 자산 가치로 변환합니다.
+## 8. 자주 발생하는 이슈
+- **FinRL 버전 차이**: `PortfolioOptimizationEnv` 인자 명이 바뀌면 ImportError가 발생합니다. `requirements.txt` 버전을 유지하세요.
+- **엑셀 인코딩 문제**: Windows 엑셀에서 저장 시 UTF-8이 아닌 경우, pandas가 열 이름을 제대로 읽지 못합니다. 가능하면 `UTF-8 (CSV)` 내보내기 후 pandas에서 읽어 다시 저장하세요.
+- **Optuna trial 누락**: 실험 중간에 예외가 발생하면 trial이 `FAIL` 처리됩니다. 로그를 남기고 재시도하거나 `catch` 옵션을 지정하세요.
+- **GPU/CPU 자원 부족**: `torch.set_num_threads(12)`가 기본값입니다. 로컬 머신 코어 수보다 크면 다운될 수 있으니 적절히 조절하세요.
 
-## 평가 지표 & 리포팅
-- **Sharpe / Sortino**: `quantstats.stats` 모듈 사용, `rf=0.02`, `periods=252`로 연환산.  
-- **MDD (최대낙폭)**: `quantstats.stats.max_drawdown`으로 계산.  
-- **CAGR**: `quantstats.stats.cagr`. 데이터 기간과 `periods`가 유효한지 점검하세요.  
-- **Omega**: `required_return=0.02`로 손실 확률 대비 수익 확률을 비교합니다.  
-- **엑셀 리포트**: `train_portfolio_data.xlsx`, `test_portfolio_data.xlsx`, `weights` 엑셀로 후처리/시각화가 가능. Tableau나 Power BI로 연결해 대시보드화하는 것도 좋습니다.
-
-## 실험 팁
-- Optuna 탐색 시 탐색 공간을 명시적으로 제한하세요(예: `fee` 0.0005~0.002, `timewin` 10~30). 기본 스크립트는 탐색 공간이 고정값으로 되어 있으니 확장해도 좋습니다.
-- 데이터가 길수록 첫 15일(`timewin`)은 모델이 학습에 사용하되 평가에선 잘려나가므로, 충분한 시작 구간을 확보하세요.
-- 로그 변환(`np.log`)이 적용된 피처는 0 이하일 때 0으로 덮어씁니다. 재무지표가 음수가 될 수 있는 항목은 `(-)` 파생 컬럼으로 분리 후 절댓값 변환을 수행합니다. 필요하다면 Z-score나 RobustScaler로 대체할 수 있습니다.
-- 결과 비교 시 동일 기간의 벤치마크(예: KOSPI 지수)를 함께 계산하면 설득력이 올라갑니다.
-
-## 자주 하는 실수 체크리스트
-- ✅ 전처리 결과 엑셀을 학습 디렉터리에 두었나요? (없으면 `FileNotFoundError` 발생)  
-- ✅ FinRL 버전이 너무 최신이라 API가 바뀌지 않았나요? (`PortfolioOptimizationEnv` 인자 mismatch)  
-- ✅ `device` 설정이 CPU/GPU에 맞게 잡혔나요? (특히 CUDA 설치 여부)  
-- ✅ QuantStats가 설치되어 있나요? (`pip install quantstats` 누락 시 ImportError)  
-- ✅ Git에 민감한 데이터(원본 엑셀)가 올라가지 않도록 `.gitignore`가 적용됐나요? (기본으로 `*.xlsx`를 무시하지만, 샘플 데이터를 올릴 땐 예외 처리 필요)
-
-## 다음 단계 제안
-1. 학습 결과를 노트북(예: Jupyter)으로 시각화하는 리포트를 추가해 논문 스타일의 그림을 만드세요.
-2. `argparse`를 도입해 기간(`sptdate`), 수수료(`fee`), `timewin` 등을 커맨드라인에서 바로 바꿀 수 있게 만드세요.
-3. 리밸런싱 주기(일간, 주간)나 거래 제약조건(비중 상한/하한)을 다양하게 시험해 후속 연구를 진행하세요.
-4. 백테스트 결과를 FactSet, FnGuide 등 외부 데이터와 비교해 데이터 품질을 검증하세요.
+## 9. 후속 연구 제안
+1. **거래 제약조건 추가**: 섹터 비중 상·하한, 거래량 제한 등 현실적인 제약을 `Reward` 가중치로 반영.
+2. **동적 위험중립 금리**: QuantStats 계산에 고정 2% 대신 무위험 금리 시계열을 입력.
+3. **Factor-aware State**: Fama-French 3/5 팩터, 거시변수 Surprise 지표 등 추가 입력을 실험.
+4. **다중 목표 최적화**: Sharpe와 Turnover를 동시 최적화하는 프레임워크 구축 (예: CMDP).
 
 ---
-문의나 공유하고 싶은 팁이 있다면 GitHub 이슈를 열어 주세요. 한글로 편하게 남기셔도 됩니다! 💬
+질문이나 아이디어가 있다면 GitHub 이슈에 남겨 주세요. 연구 경험을 공유하고 싶으신 분은 언제든 환영합니다. 😊
