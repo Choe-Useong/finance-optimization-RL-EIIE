@@ -1,0 +1,13 @@
+finrl>=0.3.6
+gym
+joblib
+numpy
+openpyxl
+optuna
+pandas
+pyportfolioopt
+quantstats
+scikit-learn
+torch
+torch-geometric
+wrds
