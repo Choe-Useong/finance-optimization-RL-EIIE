@@ -78,6 +78,7 @@ FinRL의 `EIIE` 아키텍처는 다음 블록으로 구성됩니다.
 ## 5. 학습 알고리즘
 ### 5.1 PPO 손실 함수
 FinRL의 `DRLAgent`는 Stable-Baselines3를 래핑하며 기본적으로 PPO를 사용합니다.
+
 $$
 L^{\text{CLIP}}(\theta)
 = \mathbb{E}_t \left[
@@ -87,6 +88,7 @@ L^{\text{CLIP}}(\theta)
   \right)
 \right]
 $$
+
 여기서 $r_t(\theta) = \dfrac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_{\text{old}}}(a_t \mid s_t)}$, $\hat{A}_t$는 Generalized Advantage Estimation(GAE)로 계산합니다.
 
 ### 5.2 Optuna 기반 하이퍼파라미터 탐색
