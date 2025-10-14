@@ -77,17 +77,17 @@ from dateutil.relativedelta import relativedelta
     x
 )
 
-# 4️⃣ 다시 MultiIndex로 설정
+# 다시 MultiIndex로 설정
 재무 = 재무.set_index(['Symbol Name', 'time'])
 
-# 1️⃣ 날짜 범위를 데이터프레임으로 변환
+# 날짜 범위를 데이터프레임으로 변환
 dates_df = pd.DataFrame({'time': pd.date_range(start="2004-04-01", end="2025-01-31", freq="D")})
 
-# 2️⃣ 'Symbol Name'과 모든 날짜를 조합하여 데이터 확장
+# 'Symbol Name'과 모든 날짜를 조합하여 데이터 확장
 symbol_names = 재무.index.get_level_values('Symbol Name').unique()  # 기존 종목 리스트
 expanded_dates = dates_df.merge(pd.DataFrame({'Symbol Name': symbol_names}), how='cross')  # 모든 날짜 × Symbol Name
 
-# 3️⃣ 'Symbol Name'과 'time'을 기준으로 재무 데이터 병합
+# 'Symbol Name'과 'time'을 기준으로 재무 데이터 병합
 재무 = expanded_dates.merge(재무, on=['Symbol Name', 'time'], how='left')
     
 재무 = 재무.set_index(['Symbol Name', 'time'])
@@ -99,18 +99,18 @@ expanded_dates = dates_df.merge(pd.DataFrame({'Symbol Name': symbol_names}), how
 # 가격과 시가총액을 'Symbol Name'과 'time'을 기준으로 outer join
 통합데이터 = 가격.merge(시가총액, on=['Symbol Name', 'time'], how='outer')
 
-# 1️⃣ 'Symbol Name'과 'time'을 기준으로 재무 데이터 병합
+# 'Symbol Name'과 'time'을 기준으로 재무 데이터 병합
 통합데이터 = 통합데이터.merge(재무, on=['Symbol Name', 'time'], how='left')
 
 
 
-# 1️⃣ '통합데이터'에서 'Symbol Name' 리스트 추출
+# '통합데이터'에서 'Symbol Name' 리스트 추출
 symbol_names = 통합데이터.index.get_level_values('Symbol Name').unique()
 
 # 'time'이 인덱스라면 일반 컬럼으로 변환
 경제지표2 = 경제지표2.reset_index()
 
-# 2️⃣ '경제지표2'에 모든 Symbol Name을 추가하여 MultiIndex 생성
+# '경제지표2'에 모든 Symbol Name을 추가하여 MultiIndex 생성
 경제지표2_multi = 경제지표2.merge(
     pd.DataFrame({'Symbol Name': symbol_names}), how='cross'
 ).set_index(['Symbol Name', 'time'])
@@ -119,7 +119,7 @@ symbol_names = 통합데이터.index.get_level_values('Symbol Name').unique()
 
 
 
-# 3️⃣ '통합데이터'와 '경제지표2' 병합 (MultiIndex 유지)
+# '통합데이터'와 '경제지표2' 병합 (MultiIndex 유지)
 통합데이터 = 통합데이터.merge(경제지표2_multi, on=['Symbol Name', 'time'], how='left')
 
 통합데이터 = 통합데이터[['수정주가 (현금배당반영)(원)', '시가총액 (KRX)(원)', '*총금융부채(원)', '단기금융부채(원)',
