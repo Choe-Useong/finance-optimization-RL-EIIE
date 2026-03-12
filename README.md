@@ -1,5 +1,5 @@
 # Reinforcement Portfolio Trader (EIIE)
-
+논문링크: https://koreascience.kr/article/CFKO202520954006177.page
 ## 개요
 
 - **목표**: 강화학습 기반 산업 포트폴리오 트레이딩 모델 구현
